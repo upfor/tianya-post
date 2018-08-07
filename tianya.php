@@ -60,8 +60,8 @@ try {
     exit;
 }
 
-$fileHandleAll = fopen(__DIR__ . "/data/{$postId}.all.log", 'w+');
-$fileHandleLz = fopen(__DIR__ . "/data/{$postId}.lz.log", 'w+');
+$fileHandleGt = fopen(__DIR__ . "/data/{$postId}【完整版】.log", 'w+'); // 含跟帖、评论
+$fileHandleLz = fopen(__DIR__ . "/data/{$postId}【楼主版】.log", 'w+'); // 仅含楼主帖
 
 $postTitle = <<<TITLE
 {$title}
@@ -70,7 +70,7 @@ $postUrl
 \n\n
 TITLE;
 
-fwrite($fileHandleAll, $postTitle);
+fwrite($fileHandleGt, $postTitle);
 fwrite($fileHandleLz, $postTitle);
 
 // 进度
@@ -85,18 +85,45 @@ for ($page = 1; $page <= $totalPage; $page++) {
     $crawler = $client->request('GET', $pageUrl);
 
     $crawler->filter('#j-post-content .content .item')->each(function (Crawler $node) use (
-        &$fileHandleAll, &$fileHandleLz, &$input, &$output
+        $postId, $cat, $client, $fileHandleGt, $fileHandleLz, &$input, &$output
     ) {
         $isLz = $node->filter('.hd .info .author .u-badge')->count() ? ' [楼主]' : '';
         $user = $node->attr('data-user');
         $lid = $node->attr('data-id');
         $replyId = $node->attr('data-replyid');
         $replyIdText = $replyId ? " [{$replyId}]" : '';
+        $item = is_numeric($cat) ? 'develop' : $cat;
+        $commentText = '';
 
         if ($lid > 0) {
             $datetime = $node->attr('data-time');
             $content = $node->filter('.bd .reply-div');
-            $commentCount = $node->filter('.bd .comments')->attr('data-total');
+            if ($replyId && $node->filter('.bd .comments')->count()) {
+                $commentCount = $node->filter('.bd .comments')->attr('data-total');
+                $commentList = [];
+                for ($num = 1; $num <= ceil($commentCount / 10); $num++) {
+                    $commentUrl = "http://bbs.tianya.cn/api?method=bbs.api.getCommentList&params.item={$item}&params.articleId={$postId}&params.replyId={$replyId}&params.pageNum={$num}";
+
+                    $client->request('GET', $commentUrl);
+                    $response = $client->getResponse()->getContent();
+                    $response = json_decode($response, true);
+
+                    foreach ((array) $response['data'] as $row) {
+                        $ctime = date('Y-m-d H:i', strtotime($row['comment_time']));
+                        $row['content'] = strip_tags($row['content']);
+                        $commentList[] = <<<COMMENT
+\t[{$row['author_name']}] [{$ctime}]
+\t>>>
+\t{$row['content']}
+COMMENT;
+
+                    }
+                }
+
+                if (count($commentList)) {
+                    $commentText = "\n\n↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓【评论】↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓\n" . implode("\n\n\t********************************\n", $commentList);
+                }
+            }
         } else {
             $datetime = $node->filter('.info .time')->text();
             $content = $node->filter('.bd');
@@ -104,20 +131,22 @@ for ($page = 1; $page <= $totalPage; $page++) {
 
         $contentList = [];
         $content->filter('p')->each(function (Crawler $node) use (&$contentList) {
-            $contentList[] = $node->text();
+            $text = trim($node->text());
+            $text && $contentList[] = $text;
         });
 
         $contentText = implode("\n\n", $contentList);
 
         $post = <<<POST
 ----------------------------------------------------------------
-[{$lid}楼] [{$user}]{$isLz} $datetime{$replyIdText}
+[{$lid}楼] [{$user}]{$isLz} [$datetime]{$replyIdText}
 ----------------------------------------------------------------
-$contentText
-\n\n
+{$contentText}
+{$commentText}
+\n\n\n
 POST;
 
-        fwrite($fileHandleAll, $post);
+        fwrite($fileHandleGt, $post);
         if ($isLz) {
             fwrite($fileHandleLz, $post);
         }
@@ -128,8 +157,8 @@ POST;
 
 }
 
-fclose($fileHandleAll);
+fclose($fileHandleGt);
 fclose($fileHandleLz);
 
 $useTime = round(microtime(true) - $startTime, 3); // 任务用时
-$output->write("用时 <info>{$useTime}s</info>");
+$output->write("用时 <info>{$useTime}</info>s");
