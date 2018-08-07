@@ -22,6 +22,7 @@ if (!$url) {
 }
 
 list($postType, $cat, $postId, $page) = explode('-', pathinfo(parse_url($url, PHP_URL_PATH), PATHINFO_FILENAME));
+$postType = str_ireplace('_author', '', $postType);
 
 $postUrl = "http://bbs.tianya.cn/m/{$postType}-{$cat}-{$postId}-1.shtml";
 
@@ -53,7 +54,7 @@ try {
     if ($totalPageCrawler->count()) {
         list(, $totalPage) = explode('/', $totalPageCrawler->first()->attr('placeholder'));
     }
-    $output->write("总共 <info>{$totalPage}</info> 页");
+    $output->write("总共<info>{$totalPage}</info>页");
 
 } catch (\Exception $e) {
     $output->error($e->getMessage());
@@ -132,7 +133,15 @@ COMMENT;
         $contentList = [];
         $content->filter('p')->each(function (Crawler $node) use (&$contentList) {
             $text = trim($node->text());
-            $text && $contentList[] = $text;
+            if ($text) {
+                $contentList[] = $text;
+            } elseif ($node->filter('img')->count()) {
+                $img = $node->filter('img')->attr('src');
+                if (strpos($img, '//') === 0) {
+                    $img = 'http:' . $img;
+                }
+                $contentList[] = $img;
+            }
         });
 
         $contentText = implode("\n\n", $contentList);
@@ -148,6 +157,13 @@ POST;
 
         fwrite($fileHandleGt, $post);
         if ($isLz) {
+            $post = <<<POST
+----------------------------------------------------------------
+[{$lid}楼] [{$user}]{$isLz} [$datetime]{$replyIdText}
+----------------------------------------------------------------
+{$contentText}
+\n\n\n
+POST;
             fwrite($fileHandleLz, $post);
         }
     });
@@ -160,5 +176,11 @@ POST;
 fclose($fileHandleGt);
 fclose($fileHandleLz);
 
-$useTime = round(microtime(true) - $startTime, 3); // 任务用时
-$output->write("用时 <info>{$useTime}</info>s");
+$useTime = $second = round(microtime(true) - $startTime, 3); // 任务用时
+$useTime = $second = 12.249; // 任务用时
+$minute = '';
+if ($useTime > 60) {
+    $minute = " <info>" . floor($useTime / 60) . "</info>分";
+    $second = $useTime % 60;
+}
+$output->write("用时{$minute}<info>{$second}</info>秒");
