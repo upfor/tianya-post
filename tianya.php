@@ -48,8 +48,11 @@ try {
     $title = $crawler->filter('#j-post-content .title h1')->first()->text();
     $output->write("<info>{$title}</info>");
 
-    $totalPage = $crawler->filter('#j-post-content .u-pager .page-txt input.txt')->first()->attr('placeholder');
-    list(, $totalPage) = explode('/', $totalPage);
+    $totalPage = 1;
+    $totalPageCrawler = $crawler->filter('#j-post-content .u-pager .page-txt input.txt');
+    if ($totalPageCrawler->count()) {
+        list(, $totalPage) = explode('/', $totalPageCrawler->first()->attr('placeholder'));
+    }
     $output->write("总共 <info>{$totalPage}</info> 页");
 
 } catch (\Exception $e) {
@@ -60,8 +63,15 @@ try {
 $fileHandleAll = fopen(__DIR__ . "/data/{$postId}.all.log", 'w+');
 $fileHandleLz = fopen(__DIR__ . "/data/{$postId}.lz.log", 'w+');
 
-fwrite($fileHandleAll, "{$title}\n\n");
-fwrite($fileHandleLz, "{$title}\n\n");
+$postTitle = <<<TITLE
+{$title}
+
+$postUrl
+\n\n
+TITLE;
+
+fwrite($fileHandleAll, $postTitle);
+fwrite($fileHandleLz, $postTitle);
 
 // 进度
 $bar = Show::progressBar($totalPage, [
@@ -86,6 +96,7 @@ for ($page = 1; $page <= $totalPage; $page++) {
         if ($lid > 0) {
             $datetime = $node->attr('data-time');
             $content = $node->filter('.bd .reply-div');
+            $commentCount = $node->filter('.bd .comments')->attr('data-total');
         } else {
             $datetime = $node->filter('.info .time')->text();
             $content = $node->filter('.bd');
@@ -112,7 +123,7 @@ POST;
         }
     });
 
-    // 进度更新
+    // 进度条更新
     $bar->send(1);
 
 }
