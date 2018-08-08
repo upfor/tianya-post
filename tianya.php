@@ -68,6 +68,8 @@ $postTitle = <<<TITLE
 {$title}
 
 $postUrl
+
+QQ群: 721981381
 \n\n
 TITLE;
 
@@ -80,13 +82,15 @@ $bar = Show::progressBar($totalPage, [
     'doneChar' => '=',
 ]);
 
+$emailList = [];
+
 for ($page = 1; $page <= $totalPage; $page++) {
     $pageUrl = str_ireplace('-1.shtml', '-' . $page . '.shtml', $postUrl);
 
     $crawler = $client->request('GET', $pageUrl);
 
     $crawler->filter('#j-post-content .content .item')->each(function (Crawler $node) use (
-        $postId, $cat, $client, $fileHandleGt, $fileHandleLz, &$input, &$output
+        $postId, $cat, $client, $fileHandleGt, $fileHandleLz, &$input, &$output, &$emailList
     ) {
         $isLz = $node->filter('.hd .info .author .u-badge')->count() ? ' [楼主]' : '';
         $user = $node->attr('data-user');
@@ -118,6 +122,10 @@ for ($page = 1; $page <= $totalPage; $page++) {
 \t{$row['content']}
 COMMENT;
 
+                        foreach (parseEmail($row['content']) as $val) {
+                            $emailList[$val] = $ctime;
+                        }
+
                     }
                 }
 
@@ -145,6 +153,10 @@ COMMENT;
         });
 
         $contentText = implode("\n\n", $contentList);
+
+        foreach (parseEmail($contentText) as $val) {
+            $emailList[$val] = $datetime;
+        }
 
         $post = <<<POST
 ----------------------------------------------------------------
@@ -176,6 +188,10 @@ POST;
 fclose($fileHandleGt);
 fclose($fileHandleLz);
 
+// 帖子内容中的邮箱地址
+arsort($emailList);
+file_put_contents(__DIR__ . "/data/email.{$postId}.json", json_encode($emailList, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+
 $useTime = $second = round(microtime(true) - $startTime, 3); // 任务用时
 $useTime = $second = 12.249; // 任务用时
 $minute = '';
@@ -184,3 +200,10 @@ if ($useTime > 60) {
     $second = $useTime % 60;
 }
 $output->write("用时{$minute}<info>{$second}</info>秒");
+
+// 解析文本中的邮箱地址
+function parseEmail($str) {
+    preg_match_all('/[a-zA-Z0-9_.-]{2,}@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.[a-zA-Z0-9]{2,6}/i', $str, $matches);
+
+    return array_unique($matches[0]);
+}
