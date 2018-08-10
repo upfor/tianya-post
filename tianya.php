@@ -28,6 +28,8 @@ $postUrl = "http://bbs.tianya.cn/m/{$postType}-{$cat}-{$postId}-1.shtml";
 
 $config = require __DIR__ . '/config.php';
 
+$filterAuthor = array_flip($config['filter_author']);
+
 $client = new Client();
 $guzzleClient = new GuzzleClient($config['guzzle_client_config']);
 $client->setClient($guzzleClient);
@@ -61,8 +63,10 @@ try {
     exit;
 }
 
-$fileHandleGt = fopen(__DIR__ . "/data/{$postId}【完整版】.log", 'w+'); // 含跟帖、评论
-$fileHandleLz = fopen(__DIR__ . "/data/{$postId}【楼主版】.log", 'w+'); // 仅含楼主帖
+$output->write("开始时间: <info>" . date('Y-m-d H:i:s') . "</info>");
+
+$fileHandleGt = fopen(__DIR__ . "/data/{$postId}【完整版】.txt", 'w+'); // 含跟帖、评论
+$fileHandleLz = fopen(__DIR__ . "/data/{$postId}【楼主版】.txt", 'w+'); // 仅含楼主帖
 
 $postTitle = <<<TITLE
 {$title}
@@ -70,6 +74,8 @@ $postTitle = <<<TITLE
 $postUrl
 
 QQ群: 721981381
+
+声明: 本群仅整理帖子内容，帖子中的内容、观点仅代表原作者、与本群无关。
 \n\n
 TITLE;
 
@@ -90,7 +96,7 @@ for ($page = 1; $page <= $totalPage; $page++) {
     $crawler = $client->request('GET', $pageUrl);
 
     $crawler->filter('#j-post-content .content .item')->each(function (Crawler $node) use (
-        $postId, $cat, $client, $fileHandleGt, $fileHandleLz, &$input, &$output, &$emailList
+        $postId, $cat, $client, $fileHandleGt, $fileHandleLz, &$input, &$output, &$emailList, $filterAuthor
     ) {
         $isLz = $node->filter('.hd .info .author .u-badge')->count() ? ' [楼主]' : '';
         $user = $node->attr('data-user');
@@ -114,23 +120,28 @@ for ($page = 1; $page <= $totalPage; $page++) {
                     $response = json_decode($response, true);
 
                     foreach ((array) $response['data'] as $row) {
+                        if (isset($filterAuthor[$row['author_name']])) {
+                            continue;
+                        }
+
                         $ctime = date('Y-m-d H:i', strtotime($row['comment_time']));
                         $row['content'] = strip_tags($row['content']);
                         $commentList[] = <<<COMMENT
-\t[{$row['author_name']}] [{$ctime}]
-\t>>>
-\t{$row['content']}
+    [{$row['author_name']}] [{$ctime}]
+    >>>
+    {$row['content']}
 COMMENT;
 
                         foreach (parseEmail($row['content']) as $val) {
                             $emailList[$val] = $ctime;
                         }
-
                     }
+
+                    usleep(100000);
                 }
 
                 if (count($commentList)) {
-                    $commentText = "\n\n↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓【评论】↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓\n" . implode("\n\n\t********************************\n", $commentList);
+                    $commentText = "\n\n↓↓↓↓↓↓↓↓【评论】↓↓↓↓↓↓↓↓\n" . implode("\n\n    ************************\n", $commentList);
                 }
             }
         } else {
@@ -159,9 +170,9 @@ COMMENT;
         }
 
         $post = <<<POST
-----------------------------------------------------------------
-[{$lid}楼] [{$user}]{$isLz} [$datetime]{$replyIdText}
-----------------------------------------------------------------
+----------------------------------------
+[{$lid}楼] [{$user}]{$isLz} [$datetime]
+----------------------------------------
 {$contentText}
 {$commentText}
 \n\n\n
@@ -170,9 +181,9 @@ POST;
         fwrite($fileHandleGt, $post);
         if ($isLz) {
             $post = <<<POST
-----------------------------------------------------------------
+----------------------------------------
 [{$lid}楼] [{$user}]{$isLz} [$datetime]{$replyIdText}
-----------------------------------------------------------------
+----------------------------------------
 {$contentText}
 \n\n\n
 POST;
@@ -192,8 +203,9 @@ fclose($fileHandleLz);
 arsort($emailList);
 file_put_contents(__DIR__ . "/data/email.{$postId}.json", json_encode($emailList, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 
+$output->write("结束时间: <info>" . date('Y-m-d H:i:s') . "</info>");
+
 $useTime = $second = round(microtime(true) - $startTime, 3); // 任务用时
-$useTime = $second = 12.249; // 任务用时
 $minute = '';
 if ($useTime > 60) {
     $minute = " <info>" . floor($useTime / 60) . "</info>分";

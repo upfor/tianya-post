@@ -11,4 +11,8 @@ return [
         'connect_timeout' => 3,
         'timeout' => 10,
     ],
+    'filter_author' => [
+        'ty_小黑麦759',
+        '天下行走s',
+    ],
 ];
