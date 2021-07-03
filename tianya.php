@@ -38,6 +38,7 @@ foreach ($config['headers'] as $name => $val) {
     $client->setHeader($name, $val);
 }
 
+// 1. 获取帖子信息
 try {
     $client->setHeader('Referer', 'bbs.tianya.cn');
     $crawler = $client->request('GET', $postUrl);
@@ -65,8 +66,20 @@ try {
 
 $output->write("开始时间: <info>" . date('Y-m-d H:i:s') . "</info>");
 
-$fileHandleGt = fopen(__DIR__ . "/data/{$postId}【完整版】.txt", 'w+'); // 含跟帖、评论
-$fileHandleLz = fopen(__DIR__ . "/data/{$postId}【楼主版】.txt", 'w+'); // 仅含楼主帖
+$dataDir = __DIR__ . '/data';
+if (!file_exists($dataDir)) {
+    mkdir($dataDir);
+}
+$fileGt = $dataDir . "/{$postId}【完整版】.txt";
+$fileLz = $dataDir . "/{$postId}【楼主版】.txt";
+if (file_exists($fileGt)) {
+    unlink($fileGt);
+}
+if (file_exists($fileLz)) {
+    unlink($fileLz);
+}
+$fileHandleGt = fopen($fileGt, 'w+'); // 含跟帖、评论
+$fileHandleLz = fopen($fileLz, 'w+'); // 仅含楼主帖
 
 $postTitle = <<<TITLE
 {$title}
@@ -84,7 +97,6 @@ fwrite($fileHandleLz, $postTitle);
 
 // 进度
 $bar = Show::progressBar($totalPage, [
-    'msg' => '进度',
     'doneChar' => '=',
 ]);
 
@@ -93,7 +105,18 @@ $emailList = [];
 for ($page = 1; $page <= $totalPage; $page++) {
     $pageUrl = str_ireplace('-1.shtml', '-' . $page . '.shtml', $postUrl);
 
-    $crawler = $client->request('GET', $pageUrl);
+    $tries = 0;
+    try {
+        START:
+        $tries++;
+        $crawler = $client->request('GET', $pageUrl);
+    } catch (\Exception $e) {
+        if ($tries > 10) {
+            throw new $e;
+            $output->error(sprintf('帖子API请求失败超过10次, 分页数(%d), URL: %s', $page, $pageUrl), true);
+        }
+        goto START;
+    }
 
     $crawler->filter('#j-post-content .content .item')->each(function (Crawler $node) use (
         $postId, $cat, $client, $fileHandleGt, $fileHandleLz, &$input, &$output, &$emailList, $filterAuthor
@@ -119,7 +142,7 @@ for ($page = 1; $page <= $totalPage; $page++) {
                     $response = $client->getResponse()->getContent();
                     $response = json_decode($response, true);
 
-                    foreach ((array) $response['data'] as $row) {
+                    foreach ((array)$response['data'] as $row) {
                         if (isset($filterAuthor[$row['author_name']])) {
                             continue;
                         }
@@ -201,7 +224,7 @@ fclose($fileHandleLz);
 
 // 帖子内容中的邮箱地址
 arsort($emailList);
-file_put_contents(__DIR__ . "/data/email.{$postId}.json", json_encode($emailList, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+file_put_contents($dataDir . "/email.{$postId}.json", json_encode($emailList, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 
 $output->write("结束时间: <info>" . date('Y-m-d H:i:s') . "</info>");
 
@@ -214,7 +237,8 @@ if ($useTime > 60) {
 $output->write("用时{$minute}<info>{$second}</info>秒");
 
 // 解析文本中的邮箱地址
-function parseEmail($str) {
+function parseEmail($str)
+{
     preg_match_all('/[a-zA-Z0-9_.-]{2,}@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.[a-zA-Z0-9]{2,6}/i', $str, $matches);
 
     return array_unique($matches[0]);

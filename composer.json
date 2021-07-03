@@ -16,7 +16,7 @@
   ],
   "require": {
     "php": ">=5.6.0",
-    "fabpot/goutte": "^3.2",
+    "fabpot/goutte": "v3.2.3",
     "inhere/console": "^1.2"
   }
 }
