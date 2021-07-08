@@ -2,197 +2,327 @@
 
 require_once __DIR__ . '/vendor/autoload.php';
 
-use Goutte\Client;
-use GuzzleHttp\Client as GuzzleClient;
-use Symfony\Component\DomCrawler\Crawler;
+// 运行程序
+(new TianYaV2())->start();
 
+
+use Goutte\Client as GoutteClient;
+use GuzzleHttp\Client as GuzzleClient;
 use Inhere\Console\IO\Input;
 use Inhere\Console\IO\Output;
-use Inhere\Console\Utils\Show;
+use Inhere\Console\Util\Show;
+use Symfony\Component\DomCrawler\Crawler;
 
-$input = new Input();
-$output = new Output();
+/**
+ * V2版本
+ */
+class TianYaV2
+{
 
-$startTime = microtime(true);
+    /**
+     * @var int 程序开始执行时间
+     */
+    private $startTime;
 
-$url = $input->getCommand();
-if (!$url) {
-    $output->error('帖子 URL 缺失');
-    exit;
-}
+    /**
+     * @var Input
+     */
+    private $input;
 
-list($postType, $cat, $postId, $page) = explode('-', pathinfo(parse_url($url, PHP_URL_PATH), PATHINFO_FILENAME));
-$postType = str_ireplace('_author', '', $postType);
+    /**
+     * @var Output
+     */
+    private $output;
 
-$postUrl = "http://bbs.tianya.cn/m/{$postType}-{$cat}-{$postId}-1.shtml";
+    /**
+     * @var string 传入的帖子URL
+     */
+    private $url;
 
-$config = require __DIR__ . '/config.php';
+    /**
+     * @var string 解析后的帖子URL
+     */
+    private $postUrl;
 
-$filterAuthor = array_flip($config['filter_author']);
+    /**
+     * @var string 帖子类型
+     */
+    private $postType;
 
-$client = new Client();
-$guzzleClient = new GuzzleClient($config['guzzle_client_config']);
-$client->setClient($guzzleClient);
+    /**
+     * @var string 帖子分类
+     */
+    private $postCat;
 
-foreach ($config['headers'] as $name => $val) {
-    $client->setHeader($name, $val);
-}
+    /**
+     * @var int 帖子ID
+     */
+    private $postId;
 
-// 1. 获取帖子信息
-try {
-    $client->setHeader('Referer', 'bbs.tianya.cn');
-    $crawler = $client->request('GET', $postUrl);
-    $response = $client->getResponse();
-    $statusCode = $response->getStatus();
-    if ($statusCode != 200) {
-        $output->error('页面不存在');
-        exit;
+    /**
+     * @var string 帖子标题
+     */
+    private $title;
+
+    /**
+     * @var int 帖子分页数
+     */
+    private $totalPage = 1;
+
+    /**
+     * @var GoutteClient
+     */
+    private $client;
+
+    /**
+     * @var array 配置信息
+     */
+    private $config;
+
+    /**
+     * @var string 数据存放目录
+     */
+    private $dataDir = __DIR__ . '/data';
+
+    /**
+     * @var resource 含回复、评论的完整内容
+     */
+    private $fileHandleGt;
+
+    /**
+     * @var resource 仅含楼主帖子的脱水版
+     */
+    private $fileHandleLz;
+
+    /**
+     * @var resource 帖子&评论内容中解析出的邮箱地址
+     */
+    private $fileHandleEmail;
+
+    /**
+     * @var Generator 进度条
+     */
+    private $progressBar;
+
+    public function __construct()
+    {
+        $this->startTime = microtime(true);
+        $this->input     = new Input();
+        $this->output    = new Output();
+        $this->config    = require __DIR__ . '/config.php';
+
+        $this->checkArgs();
+        $this->initClient();
+        $this->parsePostUrl();
+        $this->initFileHandle();
     }
 
-    $title = $crawler->filter('#j-post-content .title h1')->first()->text();
-    $output->write("<info>{$title}</info>");
-
-    $totalPage = 1;
-    $totalPageCrawler = $crawler->filter('#j-post-content .u-pager .page-txt input.txt');
-    if ($totalPageCrawler->count()) {
-        list(, $totalPage) = explode('/', $totalPageCrawler->first()->attr('placeholder'));
+    /**
+     * 检查传参
+     */
+    private function checkArgs()
+    {
+        $this->url = $this->input->getCommand();
+        if (!$this->url) {
+            $this->output->error('帖子 URL 缺失');
+            exit;
+        }
     }
-    $output->write("总共<info>{$totalPage}</info>页");
 
-} catch (\Exception $e) {
-    $output->error($e->getMessage());
-    exit;
-}
+    /**
+     * 解析帖子URL信息
+     */
+    private function parsePostUrl()
+    {
+        [$this->postType, $this->postCat, $this->postId]
+            = explode('-', pathinfo(parse_url($this->url, PHP_URL_PATH), PATHINFO_FILENAME));
 
-$output->write("开始时间: <info>" . date('Y-m-d H:i:s') . "</info>");
+        $this->postType = str_ireplace('_author', '', $this->postType);
 
-$dataDir = __DIR__ . '/data';
-if (!file_exists($dataDir)) {
-    mkdir($dataDir);
-}
-$fileGt = $dataDir . "/{$postId}【完整版】.txt";
-$fileLz = $dataDir . "/{$postId}【楼主版】.txt";
-if (file_exists($fileGt)) {
-    unlink($fileGt);
-}
-if (file_exists($fileLz)) {
-    unlink($fileLz);
-}
-$fileHandleGt = fopen($fileGt, 'w+'); // 含跟帖、评论
-$fileHandleLz = fopen($fileLz, 'w+'); // 仅含楼主帖
+        $this->postUrl = "https://bbs.tianya.cn/m/{$this->postType}-{$this->postCat}-{$this->postId}-1.shtml";
+    }
 
-$postTitle = <<<TITLE
-{$title}
+    /**
+     * 初始化帖子文件句柄
+     */
+    private function initFileHandle()
+    {
+        if (!file_exists($this->dataDir)) {
+            mkdir($this->dataDir);
+        }
+        $fileGt    = $this->dataDir . "/{$this->postCat}-{$this->postId}.完整版.txt";
+        $fileLz    = $this->dataDir . "/{$this->postCat}-{$this->postId}.楼主版.txt";
+        $fileEmail = $this->dataDir . "/{$this->postCat}-{$this->postId}.email.txt";
+        if (file_exists($fileGt)) {
+            unlink($fileGt);
+        }
+        if (file_exists($fileLz)) {
+            unlink($fileLz);
+        }
+        if (file_exists($fileEmail)) {
+            unlink($fileEmail);
+        }
+        $this->fileHandleGt    = fopen($fileGt, 'w+'); // 含跟帖、评论
+        $this->fileHandleLz    = fopen($fileLz, 'w+'); // 仅含楼主帖
+        $this->fileHandleEmail = fopen($fileEmail, 'w+'); // 帖子中的邮件地址
+    }
 
-$postUrl
+    /**
+     * 关闭文件句柄
+     */
+    private function closeFileHandle()
+    {
+        fclose($this->fileHandleGt);
+        fclose($this->fileHandleLz);
+        fclose($this->fileHandleEmail);
+    }
 
-QQ群: 721981381
+    /**
+     * 初始化HTTP请求客户端
+     */
+    private function initClient()
+    {
+        $this->client = new GoutteClient();
+        $guzzleClient = new GuzzleClient($this->config['guzzle_client_config']);
+        $this->client->setClient($guzzleClient);
 
-声明: 本群仅整理帖子内容，帖子中的内容、观点仅代表原作者、与本群无关。
+        foreach ($this->config['headers'] as $name => $val) {
+            $this->client->setHeader($name, $val);
+        }
+    }
+
+    /**
+     * 进度条
+     */
+    private function initProgressBar()
+    {
+        $this->progressBar = Show::dynamicText('执行完成', '');
+    }
+
+    /**
+     * 开始分析帖子
+     *
+     * @throws Exception
+     */
+    public function start()
+    {
+        $this->fetchPostInfo();
+        $this->writePostInfo();
+
+        $this->initProgressBar();
+
+        $this->fetchPostContent();
+    }
+
+    /**
+     * 获取帖子基本信息
+     */
+    public function fetchPostInfo()
+    {
+        try {
+            $this->client->setHeader('Referer', 'bbs.tianya.cn');
+            $crawler    = $this->client->request('GET', $this->postUrl);
+            $response   = $this->client->getResponse();
+            $statusCode = $response->getStatus();
+            if ($statusCode != 200) {
+                $this->output->error('页面不存在');
+                exit;
+            }
+
+            $this->title = $crawler->filter('#j-post-content .title h1')->first()->text();
+            $this->output->write("<info>{$this->title}</info>");
+
+            $totalPageCrawler = $crawler->filter('#j-post-content .u-pager .page-txt input.txt');
+            if ($totalPageCrawler->count()) {
+                [, $this->totalPage] = explode('/', $totalPageCrawler->first()->attr('placeholder'));
+            }
+            $this->output->write("总共<info>{$this->totalPage}</info>页");
+
+        } catch (Exception $e) {
+            $this->output->error($e->getMessage());
+            exit;
+        }
+    }
+
+    private function writePostInfo()
+    {
+        $postTitle = <<<TITLE
+{$this->title}
+
+{$this->postUrl}
+
+{$this->config['statement']}
 \n\n
 TITLE;
 
-fwrite($fileHandleGt, $postTitle);
-fwrite($fileHandleLz, $postTitle);
-
-// 进度
-$bar = Show::progressBar($totalPage, [
-    'doneChar' => '=',
-]);
-
-$emailList = [];
-
-for ($page = 1; $page <= $totalPage; $page++) {
-    $pageUrl = str_ireplace('-1.shtml', '-' . $page . '.shtml', $postUrl);
-
-    $tries = 0;
-    try {
-        START:
-        $tries++;
-        $crawler = $client->request('GET', $pageUrl);
-    } catch (\Exception $e) {
-        if ($tries > 10) {
-            throw new $e;
-            $output->error(sprintf('帖子API请求失败超过10次, 分页数(%d), URL: %s', $page, $pageUrl), true);
-        }
-        goto START;
+        fwrite($this->fileHandleGt, $postTitle);
+        fwrite($this->fileHandleLz, $postTitle);
     }
 
-    $crawler->filter('#j-post-content .content .item')->each(function (Crawler $node) use (
-        $postId, $cat, $client, $fileHandleGt, $fileHandleLz, &$input, &$output, &$emailList, $filterAuthor
-    ) {
-        $isLz = $node->filter('.hd .info .author .u-badge')->count() ? ' [楼主]' : '';
-        $user = $node->attr('data-user');
-        $lid = $node->attr('data-id');
-        $replyId = $node->attr('data-replyid');
-        $replyIdText = $replyId ? " [{$replyId}]" : '';
-        $item = is_numeric($cat) ? 'develop' : $cat;
-        $commentText = '';
+    public function fetchPostContent()
+    {
+        for ($page = 1; $page <= $this->totalPage; $page++) {
+            $this->progressBar->send(date('[Y-m-d H:i:s] ') . "{$page}/{$this->totalPage}页");
+            $pageUrl = str_ireplace('-1.shtml', '-' . $page . '.shtml', $this->postUrl);
 
-        if ($lid > 0) {
-            $datetime = $node->attr('data-time');
-            $content = $node->filter('.bd .reply-div');
-            if ($replyId && $node->filter('.bd .comments')->count()) {
-                $commentCount = $node->filter('.bd .comments')->attr('data-total');
-                $commentList = [];
-                for ($num = 1; $num <= ceil($commentCount / 10); $num++) {
-                    $commentUrl = "http://bbs.tianya.cn/api?method=bbs.api.getCommentList&params.item={$item}&params.articleId={$postId}&params.replyId={$replyId}&params.pageNum={$num}";
+            $tries = 0;
+            try {
+                START:
+                $tries++;
+                $crawler = $this->client->request('GET', $pageUrl);
+            } catch (Exception $e) {
+                if ($tries > 10) {
+                    $this->output->error(sprintf('帖子API请求失败超过10次, 分页数(%d), URL: %s', $page, $pageUrl));
+                    throw new $e;
+                }
+                goto START;
+            }
 
-                    $client->request('GET', $commentUrl);
-                    $response = $client->getResponse()->getContent();
-                    $response = json_decode($response, true);
+            $crawler->filter('#j-post-content .content .item')->each(function (Crawler $node) use ($page) {
+                // 是否为楼主发的帖子
+                $isLz        = $node->filter('.hd .info .author .u-badge')->count() ? ' [楼主]' : '';
+                $user        = $node->attr('data-user'); // 发帖人名称
+                $lid         = $node->attr('data-id'); // 第N楼
+                $replyId     = $node->attr('data-replyid'); // 评论ID
+                $replyIdText = $replyId ? " [{$replyId}]" : '';
+                $commentText = '';
+                $this->progressBar->send(date('[Y-m-d H:i:s] ') . "{$page}/{$this->totalPage}页, 帖子{$lid}楼");
 
-                    foreach ((array)$response['data'] as $row) {
-                        if (isset($filterAuthor[$row['author_name']])) {
-                            continue;
+                if ($lid > 0) {
+                    $datetime    = $node->attr('data-time');
+                    $content     = $node->filter('.bd .reply-div');
+                    $commentText = $this->fetchPostComment($node, $page, $lid);
+                } else {
+                    $datetime = $node->filter('.info .time')->text();
+                    $content  = $node->filter('.bd');
+                }
+
+                // 帖子内容，按段落获取后格式化
+                $contentList = [];
+                $content->filter('p')->each(function (Crawler $node) use (&$contentList) {
+                    $text = trim($node->text());
+                    if ($text) {
+                        $contentList[] = $text;
+                    } // 图片内容, 用图片地址替代
+                    elseif ($node->filter('img')->count()) {
+                        $img = $node->filter('img')->attr('src');
+                        if (strpos($img, '//') === 0) {
+                            $img = 'http:' . $img;
                         }
-
-                        $ctime = date('Y-m-d H:i', strtotime($row['comment_time']));
-                        $row['content'] = strip_tags($row['content']);
-                        $commentList[] = <<<COMMENT
-    [{$row['author_name']}] [{$ctime}]
-    >>>
-    {$row['content']}
-COMMENT;
-
-                        foreach (parseEmail($row['content']) as $val) {
-                            $emailList[$val] = $ctime;
-                        }
+                        $contentList[] = $img;
                     }
+                });
 
-                    usleep(100000);
+                $contentText = implode("\n\n", $contentList);
+
+                // 解析email地址
+                foreach ($this->parseEmail($contentText) as $email) {
+                    // 邮箱,类型,帖子楼层,时间
+                    fputcsv($this->fileHandleEmail, [$email, '帖子', $lid, $datetime]);
                 }
 
-                if (count($commentList)) {
-                    $commentText = "\n\n↓↓↓↓↓↓↓↓【评论】↓↓↓↓↓↓↓↓\n" . implode("\n\n    ************************\n", $commentList);
-                }
-            }
-        } else {
-            $datetime = $node->filter('.info .time')->text();
-            $content = $node->filter('.bd');
-        }
-
-        $contentList = [];
-        $content->filter('p')->each(function (Crawler $node) use (&$contentList) {
-            $text = trim($node->text());
-            if ($text) {
-                $contentList[] = $text;
-            } elseif ($node->filter('img')->count()) {
-                $img = $node->filter('img')->attr('src');
-                if (strpos($img, '//') === 0) {
-                    $img = 'http:' . $img;
-                }
-                $contentList[] = $img;
-            }
-        });
-
-        $contentText = implode("\n\n", $contentList);
-
-        foreach (parseEmail($contentText) as $val) {
-            $emailList[$val] = $datetime;
-        }
-
-        $post = <<<POST
+                // 完整版
+                $postGt = <<<POST
 ----------------------------------------
 [{$lid}楼] [{$user}]{$isLz} [$datetime]
 ----------------------------------------
@@ -201,45 +331,122 @@ COMMENT;
 \n\n\n
 POST;
 
-        fwrite($fileHandleGt, $post);
-        if ($isLz) {
-            $post = <<<POST
+                fwrite($this->fileHandleGt, $postGt);
+
+                // 楼主脱水版
+                if ($isLz) {
+                    $postLz = <<<POST
 ----------------------------------------
 [{$lid}楼] [{$user}]{$isLz} [$datetime]{$replyIdText}
 ----------------------------------------
 {$contentText}
 \n\n\n
 POST;
-            fwrite($fileHandleLz, $post);
+                    fwrite($this->fileHandleLz, $postLz);
+                }
+            });
+
         }
-    });
 
-    // 进度条更新
-    $bar->send(1);
+        // 发送false表示结束
+        $this->progressBar->send(false);
+    }
 
-}
+    /**
+     * 获取本楼帖子评论
+     *
+     * @param  Crawler $node 帖子维度的Node
+     * @return string
+     * @throws Exception
+     */
+    private function fetchPostComment(Crawler $node, $page, $lid)
+    {
+        $commentText = '';
+        $replyId     = $node->attr('data-replyid');
+        $item        = is_numeric($this->postCat) ? 'develop' : $this->postCat;
 
-fclose($fileHandleGt);
-fclose($fileHandleLz);
+        if ($replyId && $node->filter('.bd .comments')->count()) {
+            $commentCount = $node->filter('.bd .comments')->attr('data-total');
+            $commentList  = [];
+            // 只能每次10条
+            $commentPageTotal = ceil($commentCount / 10);
+            for ($num = 1; $num <= $commentPageTotal; $num++) {
+                $this->progressBar->send(date('[Y-m-d H:i:s] ') . "{$page}/{$this->totalPage}页, 帖子{$lid}楼, 评论{$num}/{$commentPageTotal}页");
 
-// 帖子内容中的邮箱地址
-arsort($emailList);
-file_put_contents($dataDir . "/email.{$postId}.json", json_encode($emailList, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+                $commentUrl = "https://bbs.tianya.cn/api?method=bbs.api.getCommentList&params.item={$item}&params.articleId={$this->postId}&params.replyId={$replyId}&params.pageNum={$num}";
 
-$output->write("结束时间: <info>" . date('Y-m-d H:i:s') . "</info>");
+                // 尝试N次(避免因网络或接口响应慢导致中断)
+                $tries = 0;
+                try {
+                    START:
+                    $tries++;
+                    $this->client->request('GET', $commentUrl);
+                } catch (Exception $e) {
+                    if ($tries > 5) {
+                        $this->output->error(sprintf('评论API请求失败超过10次, URL: %s', $commentUrl));
+                        throw new $e;
+                    }
+                    goto START;
+                }
+                $response = $this->client->getResponse()->getContent();
+                $response = json_decode($response, true);
 
-$useTime = $second = round(microtime(true) - $startTime, 3); // 任务用时
-$minute = '';
-if ($useTime > 60) {
-    $minute = " <info>" . floor($useTime / 60) . "</info>分";
-    $second = $useTime % 60;
-}
-$output->write("用时{$minute}<info>{$second}</info>秒");
+                // 解析评论内容
+                foreach ((array)$response['data'] as $row) {
+                    $ctime          = date('Y-m-d H:i:s', strtotime($row['comment_time']));
+                    $row['content'] = trim(strip_tags($row['content']));
+                    $commentList[]  = <<<COMMENT
+    [{$row['author_name']}] [{$ctime}]
+    >>>
+    {$row['content']}
+COMMENT;
 
-// 解析文本中的邮箱地址
-function parseEmail($str)
-{
-    preg_match_all('/[a-zA-Z0-9_.-]{2,}@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.[a-zA-Z0-9]{2,6}/i', $str, $matches);
+                    // 解析email地址
+                    foreach ($this->parseEmail($row['content']) as $email) {
+                        // 邮箱,类型,评论ID,时间
+                        fputcsv($this->fileHandleEmail, [$email, '评论', $row['id'], $ctime]);
+                    }
+                }
 
-    return array_unique($matches[0]);
+                // 延迟10ms
+                usleep(10000);
+            }
+
+            if (count($commentList)) {
+                $commentText .= "\n\n↓↓↓↓↓↓↓↓【本楼评论】↓↓↓↓↓↓↓↓\n";
+                $commentText .= implode("\n\n    ************************\n", $commentList);
+            }
+        }
+
+        return $commentText;
+    }
+
+    public function __destruct()
+    {
+        $this->closeFileHandle();
+
+        $this->output->write("结束时间: <info>" . date('Y-m-d H:i:s') . "</info>");
+
+        $useTime = $second = round(microtime(true) - $this->startTime, 3); // 任务用时
+        $minute  = '';
+        if ($useTime > 60) {
+            $minute = "<info>" . floor($useTime / 60) . "</info>分";
+            $second = $useTime % 60;
+        }
+        $this->output->write("用时{$minute}<info>{$second}</info>秒");
+    }
+
+    /**
+     * 解析文本中的邮箱地址
+     *
+     * @param  string $str
+     * @return array
+     */
+    function parseEmail($str)
+    {
+        preg_match_all('/[a-zA-Z0-9_.-]{2,}@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.[a-zA-Z0-9]{2,6}/i', $str, $matches);
+
+        return array_unique($matches[0]);
+    }
+
 }

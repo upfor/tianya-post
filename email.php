@@ -2,8 +2,8 @@
 
 require_once __DIR__ . '/vendor/autoload.php';
 
-$emailList = json_decode(file_get_contents(__DIR__ . "/data/email.252774.json"), true);
-arsort($emailList);
-//file_put_contents(__DIR__ . "/data/email.252774.json", json_encode($emailList, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+$headers = 'From: shockerli@upfor.club' . "\r\n" .
+    'X-Mailer: PHP/' . phpversion();
 
-echo implode(';', array_keys($emailList));die("\n");
+$status = mail('731357343@qq.com', 'kkndme', '看到请回复，谢谢，急');
+var_dump($status);

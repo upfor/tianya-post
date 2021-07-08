@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "cfc9979195be589d70be8f426abfa0b1",
+    "content-hash": "1a3adddc8db5f42769d5dc3d735f66a9",
     "packages": [
         {
             "name": "fabpot/goutte",
@@ -18,13 +18,7 @@
                 "type": "zip",
                 "url": "https://api.github.com/repos/FriendsOfPHP/Goutte/zipball/3f0eaf0a40181359470651f1565b3e07e3dd31b8",
                 "reference": "3f0eaf0a40181359470651f1565b3e07e3dd31b8",
-                "shasum": "",
-                "mirrors": [
-                    {
-                        "url": "https://mirrors.aliyun.com/composer/dists/%package%/%reference%.%type%",
-                        "preferred": true
-                    }
-                ]
+                "shasum": ""
             },
             "require": {
                 "guzzlehttp/guzzle": "^6.0",
@@ -79,13 +73,7 @@
                 "type": "zip",
                 "url": "https://api.github.com/repos/guzzle/guzzle/zipball/9d4290de1cfd701f38099ef7e183b64b4b7b0c5e",
                 "reference": "9d4290de1cfd701f38099ef7e183b64b4b7b0c5e",
-                "shasum": "",
-                "mirrors": [
-                    {
-                        "url": "https://mirrors.aliyun.com/composer/dists/%package%/%reference%.%type%",
-                        "preferred": true
-                    }
-                ]
+                "shasum": ""
             },
             "require": {
                 "ext-json": "*",
@@ -152,13 +140,7 @@
                 "type": "zip",
                 "url": "https://api.github.com/repos/guzzle/promises/zipball/8e7d04f1f6450fef59366c399cfad4b9383aa30d",
                 "reference": "8e7d04f1f6450fef59366c399cfad4b9383aa30d",
-                "shasum": "",
-                "mirrors": [
-                    {
-                        "url": "https://mirrors.aliyun.com/composer/dists/%package%/%reference%.%type%",
-                        "preferred": true
-                    }
-                ]
+                "shasum": ""
             },
             "require": {
                 "php": ">=5.5"
@@ -209,13 +191,7 @@
                 "type": "zip",
                 "url": "https://api.github.com/repos/guzzle/psr7/zipball/dc960a912984efb74d0a90222870c72c87f10c91",
                 "reference": "dc960a912984efb74d0a90222870c72c87f10c91",
-                "shasum": "",
-                "mirrors": [
-                    {
-                        "url": "https://mirrors.aliyun.com/composer/dists/%package%/%reference%.%type%",
-                        "preferred": true
-                    }
-                ]
+                "shasum": ""
             },
             "require": {
                 "php": ">=5.4.0",
@@ -276,29 +252,31 @@
         },
         {
             "name": "inhere/console",
-            "version": "v1.2.1",
+            "version": "v3.1.13",
             "source": {
                 "type": "git",
                 "url": "https://github.com/inhere/php-console.git",
-                "reference": "17392fe6f2243c96e41c671928274508ce99155b"
+                "reference": "26e0928f1628d02f29ffa5e47a85bf2f68a5c3d3"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/inhere/php-console/zipball/17392fe6f2243c96e41c671928274508ce99155b",
-                "reference": "17392fe6f2243c96e41c671928274508ce99155b",
-                "shasum": "",
-                "mirrors": [
-                    {
-                        "url": "https://mirrors.aliyun.com/composer/dists/%package%/%reference%.%type%",
-                        "preferred": true
-                    }
-                ]
+                "url": "https://api.github.com/repos/inhere/php-console/zipball/26e0928f1628d02f29ffa5e47a85bf2f68a5c3d3",
+                "reference": "26e0928f1628d02f29ffa5e47a85bf2f68a5c3d3",
+                "shasum": ""
             },
             "require": {
-                "php": ">=5.6.0"
+                "php": ">7.1.0",
+                "toolkit/cli-utils": "~1.0",
+                "toolkit/stdlib": "~1.0",
+                "toolkit/sys-utils": "~1.0"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "^7.5"
             },
             "suggest": {
-                "inhere/simple-print-tool": "Very lightweight data printing tools"
+                "padraic/phar-updater": "A thing to make PHAR self-updating easy and secure.",
+                "symfony/process": "php process operation",
+                "text/template": "Single-Class string template engine for PHP5/7 supporting if/loops/filters"
             },
             "type": "library",
             "autoload": {
@@ -317,18 +295,19 @@
                     "homepage": "http://www.yzone.net/"
                 }
             ],
-            "description": "a php console library, provide console argument parse,color style,user interactive, information show.",
+            "description": "a php console library, provide console argument parse, console controller/command run, color style, user interactive, information show.",
             "homepage": "https://github.com/inhere/php-console",
             "keywords": [
                 "cli",
+                "color",
                 "command",
                 "command-line",
                 "console",
                 "console-application",
                 "console-color",
-                "library"
+                "phar"
             ],
-            "time": "2017-12-25T03:43:03+00:00"
+            "time": "2020-07-06T03:31:26+00:00"
         },
         {
             "name": "psr/http-message",
@@ -342,13 +321,7 @@
                 "type": "zip",
                 "url": "https://api.github.com/repos/php-fig/http-message/zipball/f6561bf28d520154e4b0ec72be95418abe6d9363",
                 "reference": "f6561bf28d520154e4b0ec72be95418abe6d9363",
-                "shasum": "",
-                "mirrors": [
-                    {
-                        "url": "https://mirrors.aliyun.com/composer/dists/%package%/%reference%.%type%",
-                        "preferred": true
-                    }
-                ]
+                "shasum": ""
             },
             "require": {
                 "php": ">=5.3.0"
@@ -398,13 +371,7 @@
                 "type": "zip",
                 "url": "https://api.github.com/repos/ralouphie/getallheaders/zipball/120b605dfeb996808c31b6477290a714d356e822",
                 "reference": "120b605dfeb996808c31b6477290a714d356e822",
-                "shasum": "",
-                "mirrors": [
-                    {
-                        "url": "https://mirrors.aliyun.com/composer/dists/%package%/%reference%.%type%",
-                        "preferred": true
-                    }
-                ]
+                "shasum": ""
             },
             "require": {
                 "php": ">=5.6"
@@ -444,13 +411,7 @@
                 "type": "zip",
                 "url": "https://api.github.com/repos/symfony/browser-kit/zipball/729b1f0eca3ef18ea4e1a29b166145aff75d8fa1",
                 "reference": "729b1f0eca3ef18ea4e1a29b166145aff75d8fa1",
-                "shasum": "",
-                "mirrors": [
-                    {
-                        "url": "https://mirrors.aliyun.com/composer/dists/%package%/%reference%.%type%",
-                        "preferred": true
-                    }
-                ]
+                "shasum": ""
             },
             "require": {
                 "php": ">=7.1.3",
@@ -518,13 +479,7 @@
                 "type": "zip",
                 "url": "https://api.github.com/repos/symfony/css-selector/zipball/c1e29de6dc893b130b45d20d8051efbb040560a9",
                 "reference": "c1e29de6dc893b130b45d20d8051efbb040560a9",
-                "shasum": "",
-                "mirrors": [
-                    {
-                        "url": "https://mirrors.aliyun.com/composer/dists/%package%/%reference%.%type%",
-                        "preferred": true
-                    }
-                ]
+                "shasum": ""
             },
             "require": {
                 "php": ">=7.1.3"
@@ -586,13 +541,7 @@
                 "type": "zip",
                 "url": "https://api.github.com/repos/symfony/dom-crawler/zipball/41d15bb6d6b95d2be763c514bb2494215d9c5eef",
                 "reference": "41d15bb6d6b95d2be763c514bb2494215d9c5eef",
-                "shasum": "",
-                "mirrors": [
-                    {
-                        "url": "https://mirrors.aliyun.com/composer/dists/%package%/%reference%.%type%",
-                        "preferred": true
-                    }
-                ]
+                "shasum": ""
             },
             "require": {
                 "php": ">=7.1.3",
@@ -662,13 +611,7 @@
                 "type": "zip",
                 "url": "https://api.github.com/repos/symfony/polyfill-ctype/zipball/46cd95797e9df938fdd2b03693b5fca5e64b01ce",
                 "reference": "46cd95797e9df938fdd2b03693b5fca5e64b01ce",
-                "shasum": "",
-                "mirrors": [
-                    {
-                        "url": "https://mirrors.aliyun.com/composer/dists/%package%/%reference%.%type%",
-                        "preferred": true
-                    }
-                ]
+                "shasum": ""
             },
             "require": {
                 "php": ">=7.1"
@@ -744,13 +687,7 @@
                 "type": "zip",
                 "url": "https://api.github.com/repos/symfony/polyfill-intl-idn/zipball/65bd267525e82759e7d8c4e8ceea44f398838e65",
                 "reference": "65bd267525e82759e7d8c4e8ceea44f398838e65",
-                "shasum": "",
-                "mirrors": [
-                    {
-                        "url": "https://mirrors.aliyun.com/composer/dists/%package%/%reference%.%type%",
-                        "preferred": true
-                    }
-                ]
+                "shasum": ""
             },
             "require": {
                 "php": ">=7.1",
@@ -834,13 +771,7 @@
                 "type": "zip",
                 "url": "https://api.github.com/repos/symfony/polyfill-intl-normalizer/zipball/8590a5f561694770bdcd3f9b5c69dde6945028e8",
                 "reference": "8590a5f561694770bdcd3f9b5c69dde6945028e8",
-                "shasum": "",
-                "mirrors": [
-                    {
-                        "url": "https://mirrors.aliyun.com/composer/dists/%package%/%reference%.%type%",
-                        "preferred": true
-                    }
-                ]
+                "shasum": ""
             },
             "require": {
                 "php": ">=7.1"
@@ -921,13 +852,7 @@
                 "type": "zip",
                 "url": "https://api.github.com/repos/symfony/polyfill-mbstring/zipball/2df51500adbaebdc4c38dea4c89a2e131c45c8a1",
                 "reference": "2df51500adbaebdc4c38dea4c89a2e131c45c8a1",
-                "shasum": "",
-                "mirrors": [
-                    {
-                        "url": "https://mirrors.aliyun.com/composer/dists/%package%/%reference%.%type%",
-                        "preferred": true
-                    }
-                ]
+                "shasum": ""
             },
             "require": {
                 "php": ">=7.1"
@@ -1004,13 +929,7 @@
                 "type": "zip",
                 "url": "https://api.github.com/repos/symfony/polyfill-php72/zipball/9a142215a36a3888e30d0a9eeea9766764e96976",
                 "reference": "9a142215a36a3888e30d0a9eeea9766764e96976",
-                "shasum": "",
-                "mirrors": [
-                    {
-                        "url": "https://mirrors.aliyun.com/composer/dists/%package%/%reference%.%type%",
-                        "preferred": true
-                    }
-                ]
+                "shasum": ""
             },
             "require": {
                 "php": ">=7.1"
@@ -1070,6 +989,158 @@
                 }
             ],
             "time": "2021-05-27T09:17:38+00:00"
+        },
+        {
+            "name": "toolkit/cli-utils",
+            "version": "v1.2.8",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/php-toolkit/cli-utils.git",
+                "reference": "571d69bc45a15c7be4b75c89884297a2d66b901b"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/php-toolkit/cli-utils/zipball/571d69bc45a15c7be4b75c89884297a2d66b901b",
+                "reference": "571d69bc45a15c7be4b75c89884297a2d66b901b",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">7.1.0"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "^7.5 || ^8.5 || ^9.5"
+            },
+            "suggest": {
+                "inhere/console": "a lightweight php console application library."
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Toolkit\\Cli\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "inhere",
+                    "email": "in.798@qq.com",
+                    "homepage": "http://github.com/inhere"
+                }
+            ],
+            "description": "useful cli tool library of the php",
+            "homepage": "https://github.com/php-toolkit/cli-utils",
+            "keywords": [
+                "cli",
+                "command-line",
+                "library",
+                "php",
+                "tool"
+            ],
+            "time": "2021-06-14T08:05:47+00:00"
+        },
+        {
+            "name": "toolkit/stdlib",
+            "version": "v1.0.13",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/php-toolkit/stdlib.git",
+                "reference": "b4e1eab23f506be2d68652aad46855bdfc70e47d"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/php-toolkit/stdlib/zipball/b4e1eab23f506be2d68652aad46855bdfc70e47d",
+                "reference": "b4e1eab23f506be2d68652aad46855bdfc70e47d",
+                "shasum": ""
+            },
+            "require": {
+                "ext-mbstring": "*",
+                "php": ">7.1.0"
+            },
+            "suggest": {
+                "inhere/php-validate": "Very lightweight data validate tool"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Toolkit\\Stdlib\\": "src/"
+                },
+                "files": [
+                    "src/func.php"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "inhere",
+                    "email": "in.798@qq.com",
+                    "homepage": "http://www.yzone.net/"
+                }
+            ],
+            "description": "some stdlib tool library of the php",
+            "homepage": "https://github.com/php-toolkit/stdlib",
+            "keywords": [
+                "array",
+                "library",
+                "object",
+                "php",
+                "string",
+                "tool"
+            ],
+            "time": "2021-06-11T06:46:55+00:00"
+        },
+        {
+            "name": "toolkit/sys-utils",
+            "version": "v1.2.6",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/php-toolkit/sys-utils.git",
+                "reference": "1e44c1389f3862915207429fc4c8f56cb32ab18f"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/php-toolkit/sys-utils/zipball/1e44c1389f3862915207429fc4c8f56cb32ab18f",
+                "reference": "1e44c1389f3862915207429fc4c8f56cb32ab18f",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">7.1.0",
+                "toolkit/stdlib": "~1.0"
+            },
+            "suggest": {
+                "inhere/console": "a lightweight php console application library.",
+                "inhere/php-validate": "Very lightweight data validate tool"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Toolkit\\Sys\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "inhere",
+                    "email": "in.798@qq.com",
+                    "homepage": "http://www.yzone.net/"
+                }
+            ],
+            "description": "some system tool library of the php",
+            "homepage": "https://github.com/php-toolkit/sys-utils",
+            "keywords": [
+                "library",
+                "php",
+                "tool"
+            ],
+            "time": "2021-05-09T14:06:00+00:00"
         }
     ],
     "packages-dev": [],
@@ -1079,7 +1150,7 @@
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {
-        "php": ">=5.6.0"
+        "php": ">=7.1.0"
     },
     "platform-dev": [],
     "plugin-api-version": "1.1.0"
