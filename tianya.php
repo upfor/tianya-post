@@ -40,6 +40,21 @@ class TianYaV2
     private $url;
 
     /**
+     * @var bool 纯净版(--type=1)
+     */
+    private $fetchPure;
+
+    /**
+     * @var bool 完整版(--type=2)
+     */
+    private $fetchFull;
+
+    /**
+     * @var bool Email(--type=3)
+     */
+    private $fetchEmail;
+
+    /**
      * @var string 解析后的帖子URL
      */
     private $postUrl;
@@ -114,7 +129,6 @@ class TianYaV2
         $this->checkArgs();
         $this->initClient();
         $this->parsePostUrl();
-        $this->initFileHandle();
     }
 
     /**
@@ -122,11 +136,20 @@ class TianYaV2
      */
     private function checkArgs()
     {
+        // 检查URL
         $this->url = $this->input->getCommand();
         if (!$this->url) {
             $this->output->error('帖子 URL 缺失');
             exit;
         }
+
+        // 输出内容, 传参:
+        // --type=1,2,3
+        // -t=1,2,3
+        $type             = $this->input->getSameStringOpt(['t', 'type'], '1,2,3');
+        $this->fetchPure  = strpos($type, '1') !== false;
+        $this->fetchFull  = strpos($type, '2') !== false;
+        $this->fetchEmail = strpos($type, '3') !== false;
     }
 
     /**
@@ -150,21 +173,43 @@ class TianYaV2
         if (!file_exists($this->dataDir)) {
             mkdir($this->dataDir);
         }
-        $fileGt    = $this->dataDir . "/{$this->postCat}-{$this->postId}.完整版.txt";
-        $fileLz    = $this->dataDir . "/{$this->postCat}-{$this->postId}.楼主版.txt";
-        $fileEmail = $this->dataDir . "/{$this->postCat}-{$this->postId}.email.txt";
-        if (file_exists($fileGt)) {
-            unlink($fileGt);
+
+        $types = [];
+
+        // 仅含楼主帖
+        if ($this->fetchPure) {
+            $fileLz = $this->dataDir . "/{$this->postCat}-{$this->postId}.楼主版.txt";
+            if (file_exists($fileLz)) {
+                unlink($fileLz);
+            }
+            $this->fileHandleLz = fopen($fileLz, 'w+');
+            $types[]            = '<info>纯净版</info>';
         }
-        if (file_exists($fileLz)) {
-            unlink($fileLz);
+
+        // 含跟帖、评论
+        if ($this->fetchFull) {
+            $fileGt = $this->dataDir . "/{$this->postCat}-{$this->postId}.完整版.txt";
+            if (file_exists($fileGt)) {
+                unlink($fileGt);
+            }
+            $this->fileHandleGt = fopen($fileGt, 'w+');
+            $types[]            = '<info>完整版</info>';
         }
-        if (file_exists($fileEmail)) {
-            unlink($fileEmail);
+
+        // 帖子中的邮件地址
+        if ($this->fetchEmail) {
+            $fileEmail = $this->dataDir . "/{$this->postCat}-{$this->postId}.email.txt";
+            if (file_exists($fileEmail)) {
+                unlink($fileEmail);
+            }
+            $this->fileHandleEmail = fopen($fileEmail, 'w+');
+            $types[]               = '<info>Email</info>';
         }
-        $this->fileHandleGt    = fopen($fileGt, 'w+'); // 含跟帖、评论
-        $this->fileHandleLz    = fopen($fileLz, 'w+'); // 仅含楼主帖
-        $this->fileHandleEmail = fopen($fileEmail, 'w+'); // 帖子中的邮件地址
+        if (!$types) {
+            $this->output->error('没有输出类型');
+            exit;
+        }
+        $this->output->write('输出类型: ' . implode(', ', $types));
     }
 
     /**
@@ -172,9 +217,9 @@ class TianYaV2
      */
     private function closeFileHandle()
     {
-        fclose($this->fileHandleGt);
-        fclose($this->fileHandleLz);
-        fclose($this->fileHandleEmail);
+        is_resource($this->fileHandleGt) && fclose($this->fileHandleGt);
+        is_resource($this->fileHandleLz) && fclose($this->fileHandleLz);
+        is_resource($this->fileHandleEmail) && fclose($this->fileHandleEmail);
     }
 
     /**
@@ -196,7 +241,7 @@ class TianYaV2
      */
     private function initProgressBar()
     {
-        $this->progressBar = Show::dynamicText('执行完成', '');
+        $this->progressBar = Show::dynamicText('执行完成...!', '');
     }
 
     /**
@@ -207,6 +252,7 @@ class TianYaV2
     public function start()
     {
         $this->fetchPostInfo();
+        $this->initFileHandle();
         $this->writePostInfo();
 
         $this->initProgressBar();
@@ -230,7 +276,7 @@ class TianYaV2
             }
 
             $this->title = $crawler->filter('#j-post-content .title h1')->first()->text();
-            $this->output->write("<info>{$this->title}</info>");
+            $this->output->write("帖子: <info>{$this->title}</info>");
 
             $totalPageCrawler = $crawler->filter('#j-post-content .u-pager .page-txt input.txt');
             if ($totalPageCrawler->count()) {
@@ -255,8 +301,8 @@ class TianYaV2
 \n\n
 TITLE;
 
-        fwrite($this->fileHandleGt, $postTitle);
-        fwrite($this->fileHandleLz, $postTitle);
+        $this->fetchFull && fwrite($this->fileHandleGt, $postTitle);
+        $this->fetchPure && fwrite($this->fileHandleLz, $postTitle);
     }
 
     public function fetchPostContent()
@@ -278,7 +324,9 @@ TITLE;
                 goto START;
             }
 
-            $crawler->filter('#j-post-content .content .item')->each(function (Crawler $node) use ($page) {
+            $crawler->filter('#j-post-content .content .item')->each(/**
+             * @throws Exception
+             */ function (Crawler $node) use ($page) {
                 // 是否为楼主发的帖子
                 $isLz        = $node->filter('.hd .info .author .u-badge')->count() ? ' [楼主]' : '';
                 $user        = $node->attr('data-user'); // 发帖人名称
@@ -289,9 +337,13 @@ TITLE;
                 $this->progressBar->send(date('[Y-m-d H:i:s] ') . "{$page}/{$this->totalPage}页, 帖子{$lid}楼");
 
                 if ($lid > 0) {
-                    $datetime    = $node->attr('data-time');
-                    $content     = $node->filter('.bd .reply-div');
-                    $commentText = $this->fetchPostComment($node, $page, $lid);
+                    $datetime = $node->attr('data-time');
+                    $content  = $node->filter('.bd .reply-div');
+
+                    // 非纯净版，无需获取评论内容
+                    if ($this->fetchFull || $this->fetchEmail) {
+                        $commentText = $this->fetchPostComment($node, $page, $lid);
+                    }
                 } else {
                     $datetime = $node->filter('.info .time')->text();
                     $content  = $node->filter('.bd');
@@ -316,13 +368,16 @@ TITLE;
                 $contentText = implode("\n\n", $contentList);
 
                 // 解析email地址
-                foreach ($this->parseEmail($contentText) as $email) {
-                    // 邮箱,类型,帖子楼层,时间
-                    fputcsv($this->fileHandleEmail, [$email, '帖子', $lid, $datetime]);
+                if ($this->fetchEmail) {
+                    foreach ($this->parseEmail($contentText) as $email) {
+                        // 邮箱,类型,帖子楼层,时间
+                        fputcsv($this->fileHandleEmail, [$email, '帖子', $lid, $datetime]);
+                    }
                 }
 
                 // 完整版
-                $postGt = <<<POST
+                if ($this->fetchFull) {
+                    $postGt = <<<POST
 ----------------------------------------
 [{$lid}楼] [{$user}]{$isLz} [$datetime]
 ----------------------------------------
@@ -331,10 +386,11 @@ TITLE;
 \n\n\n
 POST;
 
-                fwrite($this->fileHandleGt, $postGt);
+                    fwrite($this->fileHandleGt, $postGt);
+                }
 
                 // 楼主脱水版
-                if ($isLz) {
+                if ($isLz && $this->fetchPure) {
                     $postLz = <<<POST
 ----------------------------------------
 [{$lid}楼] [{$user}]{$isLz} [$datetime]{$replyIdText}
@@ -402,9 +458,11 @@ POST;
 COMMENT;
 
                     // 解析email地址
-                    foreach ($this->parseEmail($row['content']) as $email) {
-                        // 邮箱,类型,评论ID,时间
-                        fputcsv($this->fileHandleEmail, [$email, '评论', $row['id'], $ctime]);
+                    if ($this->fetchEmail) {
+                        foreach ($this->parseEmail($row['content']) as $email) {
+                            // 邮箱,类型,评论ID,时间
+                            fputcsv($this->fileHandleEmail, [$email, '评论', $row['id'], $ctime]);
+                        }
                     }
                 }
 
